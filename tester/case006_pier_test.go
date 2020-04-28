@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/meshplus/bitxhub/internal/coreapi/api"
+
 	"github.com/meshplus/bitxhub-kit/crypto"
 	"github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
 	"github.com/meshplus/bitxhub-kit/key"
@@ -17,6 +19,7 @@ import (
 type Pier struct {
 	suite.Suite
 	privKey crypto.PrivateKey
+	api     api.CoreAPI
 	address types.Address
 	client  rpcx.Client // bitxhub admin
 }
@@ -33,7 +36,6 @@ func (suite *Pier) SetupSuite() {
 
 	client, err := rpcx.New(
 		rpcx.WithPrivateKey(privKey),
-		rpcx.WithAddrs(grpcAddresses()),
 	)
 	suite.Require().Nil(err)
 
@@ -51,7 +53,6 @@ func (suite *Pier) TestSyncMerkleWrapper() {
 
 	client, err := rpcx.New(
 		rpcx.WithPrivateKey(privKey),
-		rpcx.WithAddrs(grpcAddresses()),
 	)
 	suite.Require().Nil(err)
 

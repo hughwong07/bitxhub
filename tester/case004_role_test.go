@@ -3,6 +3,8 @@ package tester
 import (
 	"strconv"
 
+	"github.com/meshplus/bitxhub/internal/coreapi/api"
+
 	"github.com/meshplus/bitxhub/internal/constant"
 
 	"github.com/meshplus/bitxhub-kit/crypto"
@@ -14,6 +16,7 @@ import (
 
 type Role struct {
 	suite.Suite
+	api     api.CoreAPI
 	privKey crypto.PrivateKey
 	client  rpcx.Client
 }

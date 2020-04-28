@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/meshplus/bitxhub/internal/coreapi/api"
+
 	"github.com/stretchr/testify/suite"
 	"github.com/tidwall/gjson"
 )
@@ -15,6 +17,7 @@ const (
 
 type Gateway struct {
 	suite.Suite
+	api api.CoreAPI
 }
 
 func (suite *Gateway) TestGetBlock() {

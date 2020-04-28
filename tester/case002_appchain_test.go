@@ -4,6 +4,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/meshplus/bitxhub-kit/types"
+	"github.com/meshplus/bitxhub/internal/constant"
+
+	"github.com/meshplus/bitxhub/internal/coreapi/api"
+
 	"github.com/meshplus/bitxhub-kit/crypto"
 	"github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
 	"github.com/meshplus/bitxhub-model/pb"
@@ -14,25 +19,22 @@ import (
 
 type RegisterAppchain struct {
 	suite.Suite
+	api     api.CoreAPI
 	privKey crypto.PrivateKey
-	client  rpcx.Client
+	from    types.Address
 }
 
 func (suite *RegisterAppchain) SetupSuite() {
 	var err error
 	suite.privKey, err = ecdsa.GenerateKey(ecdsa.Secp256r1)
-	suite.Assert().Nil(err)
+	suite.Require().Nil(err)
 
-	suite.client, err = rpcx.New(
-		rpcx.WithPrivateKey(suite.privKey),
-		rpcx.WithAddrs(grpcAddresses()),
-	)
-	suite.Assert().Nil(err)
+	suite.from, err = suite.privKey.PublicKey().Address()
+	suite.Require().Nil(err)
 }
 
 // Appchain registers in bitxhub
 func (suite *RegisterAppchain) TestRegisterAppchain() {
-	suite.client.SetPrivateKey(suite.privKey)
 	args := []*pb.Arg{
 		rpcx.String(""),
 		rpcx.Int32(0),
@@ -41,18 +43,21 @@ func (suite *RegisterAppchain) TestRegisterAppchain() {
 		rpcx.String("趣链税务链"),
 		rpcx.String("1.8"),
 	}
-	ret, err := suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "Register", args...)
-	suite.Assert().Nil(err)
-	suite.Assert().Equal("hyperchain", gjson.Get(string(ret.Ret), "chain_type").String())
+
+	tx, err := genBVMContractTransaction(suite.privKey, constant.InterchainContractAddr.Address(), "Register", args...)
+	suite.Nil(err)
+
+	ret, err := sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
+	suite.Require().Equal("hyperchain", gjson.Get(string(ret.Ret), "chain_type").String())
 }
 
 func (suite *RegisterAppchain) TestFetchAppchains() {
 	k1, err := ecdsa.GenerateKey(ecdsa.Secp256r1)
-	suite.Assert().Nil(err)
+	suite.Require().Nil(err)
 	k2, err := ecdsa.GenerateKey(ecdsa.Secp256r1)
-	suite.Assert().Nil(err)
+	suite.Require().Nil(err)
 
-	suite.client.SetPrivateKey(k1)
 	args := []*pb.Arg{
 		rpcx.String(""),
 		rpcx.Int32(0),
@@ -61,10 +66,12 @@ func (suite *RegisterAppchain) TestFetchAppchains() {
 		rpcx.String("趣链税务链"),
 		rpcx.String("1.8"),
 	}
-	_, err = suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "Register", args...)
-	suite.Assert().Nil(err)
+	tx, err := genBVMContractTransaction(k1, constant.InterchainContractAddr.Address(), "Register", args...)
+	suite.Require().Nil(err)
+	ret, err := sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
+	suite.Require().True(ret.IsSuccess())
 
-	suite.client.SetPrivateKey(k2)
 	args = []*pb.Arg{
 		rpcx.String(""),
 		rpcx.Int32(0),
@@ -73,24 +80,36 @@ func (suite *RegisterAppchain) TestFetchAppchains() {
 		rpcx.String("fabric政务"),
 		rpcx.String("1.4"),
 	}
-	_, err = suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "Register", args...)
 
-	suite.Assert().Nil(err)
-	receipt, err := suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "Appchains")
-	suite.Assert().Nil(err)
+	tx, err = genBVMContractTransaction(k2, constant.InterchainContractAddr.Address(), "Register", args...)
+	suite.Require().Nil(err)
+	ret, err = sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
 
-	rec, err := suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "CountAppchains")
-	suite.Assert().Nil(err)
+	tx, err = genBVMContractTransaction(k2, constant.InterchainContractAddr.Address(), "Appchains")
+	suite.Require().Nil(err)
+	ret, err = sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
+	suite.Require().True(ret.IsSuccess())
+
+	tx, err = genBVMContractTransaction(k2, constant.InterchainContractAddr.Address(), "CountAppchains")
+	suite.Require().Nil(err)
+	rec, err := sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
+	suite.Require().True(ret.IsSuccess())
 	num, err := strconv.Atoi(string(rec.Ret))
-	suite.Assert().Nil(err)
-	result := gjson.Parse(string(receipt.Ret))
-	suite.Assert().EqualValues(num, len(result.Array()))
+	suite.Require().Nil(err)
+	result := gjson.Parse(string(ret.Ret))
+	suite.Require().GreaterOrEqual(num, len(result.Array()))
 
-	r, err := suite.client.InvokeBVMContract(rpcx.InterchainContractAddr, "CountApprovedAppchains")
-	suite.Assert().Nil(err)
-	num, err = strconv.Atoi(string(r.Ret))
-	suite.Assert().Nil(err)
-	suite.Assert().EqualValues(0, num)
+	tx, err = genBVMContractTransaction(k2, constant.InterchainContractAddr.Address(), "CountApprovedAppchains")
+	suite.Require().Nil(err)
+	ret, err = sendTransactionWithReceipt(suite.api, tx)
+	suite.Require().Nil(err)
+	suite.Require().True(ret.IsSuccess())
+	num, err = strconv.Atoi(string(ret.Ret))
+	suite.Require().Nil(err)
+	suite.Require().EqualValues(0, num)
 }
 
 func TestRegisterAppchain(t *testing.T) {
